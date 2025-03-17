@@ -76,9 +76,11 @@ async function main() {
                 };
                 handleAgentPayload(transmitter, data);
                 updateLastReceivedTime('agents', `box-${agentId}`);
-            } else if (segments[2] === "sensors") {
+            } else if (segments[2] === "sensors" && segments[4] === "data") {
                 const deviceId = segments[3];
                 const payload = JSON.parse(message.toString());
+                console.log("deviceId", deviceId)
+                console.log("payload", payload)
                 const data = {
                     [`sensor-${deviceId}`]: payload,
                 }
