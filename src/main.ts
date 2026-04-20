@@ -1,16 +1,14 @@
 import { DigiforgeClient } from "./digiforge";
 import { connect as CreateMqttConnection } from "mqtt";
 import { handleShellyMessage } from "./shelly";
-import { handleAgentPayload, handleHCplusPayload } from "./hc-device";
+import { openSerial } from "./serial";
 import { env } from "./env";
 
 
 const ALERT_INTERVAL = 60 * 1000;
-type DeviceTypes = 'shellies' | 'HCplus' | 'agents' | 'sensors';
+type DeviceTypes = 'shellies' | 'sensors';
 interface LastReceivedTimes {
     shellies: { [id: string]: number };
-    HCplus: { [id: string]: number };
-    agents: { [id: string]: number };
     sensors: { [id: string]: number };
 }
 
@@ -42,20 +40,16 @@ async function main() {
 
     const lastReceivedTimes: LastReceivedTimes = {
         shellies: {},
-        HCplus: {},
-        agents: {},
         sensors: {}
     };
 
 
-    // Function to update the last received time
     function updateLastReceivedTime(type: DeviceTypes, id: string) {
         lastReceivedTimes[type][id] = Date.now();
     }
 
 
     localClient.on("connect", () => {
-        localClient.subscribe("nxt/#");
         localClient.subscribe("shellies/#");
     });
 
@@ -63,33 +57,17 @@ async function main() {
         const segments = topic.split("/");
         if (segments[0] === "shellies") {
             handleShellyMessage(transmitter, topic, message);
-            updateLastReceivedTime('shellies', segments[0]);
-        } else if (segments[0] === "nxt") {
-            if (segments[2] === "HCplus") {
-                handleHCplusPayload(transmitter, message);
-                updateLastReceivedTime('HCplus', segments[2]);
-            } else if (segments[2] === "agent") {
-                const payload = JSON.parse(message.toString());
-                const agentId = segments[3];
-                const data = {
-                    [`box-${agentId}`]: payload
-                };
-                handleAgentPayload(transmitter, data);
-                updateLastReceivedTime('agents', `box-${agentId}`);
-            } else if (segments[2] === "sensors" && segments[4] === "data") {
-                const deviceId = segments[3];
-                const payload = JSON.parse(message.toString());
-                console.log("deviceId", deviceId)
-                console.log("payload", payload)
-                const data = {
-                    [`sensor-${deviceId}`]: payload,
-                }
-                console.log("Transmitting Sensors");
-                transmitter.transmit(JSON.stringify(data));
-                updateLastReceivedTime(segments[2], `sensor-${deviceId}`);
-            }
+            updateLastReceivedTime('shellies', segments[1] || 'shellies');
         }
     });
+
+    openSerial(
+        transmitter,
+        env.SERIAL_PORT,
+        env.SERIAL_BAUDRATE,
+        env.SENSOR_ID,
+        () => updateLastReceivedTime('sensors', `sensor-${env.SENSOR_ID}`)
+    );
 
 
     function checkForAlerts() {

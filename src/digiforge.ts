@@ -23,19 +23,19 @@ export class DigiforgeClient {
   }
 
   constructor(opts: IDigiforgeConfig) {
-    this._client = CreateMqttConnection("mqtt://mqtt.cloud.digieye.io", {
-      clientId: opts.clientId,
-      username: opts.username,
-      password: opts.password,
-      manualConnect: true,
-    });
-
-    // this._client = CreateMqttConnection("mqtt://test.mosquitto.org:1883", {
-    //   // clientId: opts.clientId,
-    //   // username: opts.username,
-    //   // password: opts.password,
+    // this._client = CreateMqttConnection("mqtt://mqtt.cloud.digieye.io", {
+    //   clientId: opts.clientId,
+    //   username: opts.username,
+    //   password: opts.password,
     //   manualConnect: true,
     // });
+
+    this._client = CreateMqttConnection("mqtt://test.mosquitto.org:1883", {
+      // clientId: opts.clientId,
+      // username: opts.username,
+      // password: opts.password,
+      manualConnect: true,
+    });
 
 
 
