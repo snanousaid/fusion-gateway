@@ -68,13 +68,19 @@ export class DigiforgeClient {
   }
 
   async connect(): Promise<boolean> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const timer = setTimeout(() => {
-        reject("Connection timeout");
+        console.error("Connection timeout");
+        resolve(false);
       }, 30000);
       this._client.once("connect", () => {
         clearTimeout(timer);
         resolve(true);
+      });
+      this._client.once("error", (err) => {
+        clearTimeout(timer);
+        console.error("Connection error:", err.message);
+        resolve(false);
       });
       this._client.connect();
     });
