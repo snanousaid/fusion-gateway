@@ -21,11 +21,11 @@ async function main() {
         sub_topic: "nxt/devices/" + env.DIGIFORGE_CLIENTID + "/rpc",
     });
 
-    await transmitter.connect();
-
-    if (!transmitter.is_connected) {
-        console.log("Failed to connect to Digiforge");
-        process.exit(-1);
+    let connected = await transmitter.connect();
+    while (!connected) {
+        console.log("Retrying connection in 10 seconds...");
+        await new Promise(res => setTimeout(res, 10000));
+        connected = await transmitter.connect();
     }
     const msg = {
         ver: "0.8.1"
