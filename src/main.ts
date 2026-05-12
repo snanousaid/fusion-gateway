@@ -17,8 +17,8 @@ async function main() {
         clientId: env.DIGIFORGE_CLIENTID,
         username: env.DIGIFORGE_USERNAME,
         password: env.DIGIFORGE_PASSWORD,
-        pub_topic: "nxt/devices/" + env.DIGIFORGE_CLIENTID + "/data",
-        sub_topic: "nxt/devices/" + env.DIGIFORGE_CLIENTID + "/rpc",
+        pub_topic: "nextronic/devices/" + env.DIGIFORGE_CLIENTID + "/data",
+        sub_topic: "nextronic/devices/" + env.DIGIFORGE_CLIENTID + "/rpc",
     });
 
     let connected = await transmitter.connect();
