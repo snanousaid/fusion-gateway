@@ -50,7 +50,7 @@ async function main() {
 
 
     localClient.on("connect", () => {
-        localClient.subscribe("shellies/#");
+        localClient.subscribe("shellies/C4D8D5003C04/#");
     });
 
     localClient.on("message", (topic, message) => {

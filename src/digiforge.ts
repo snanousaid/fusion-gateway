@@ -28,6 +28,10 @@ export class DigiforgeClient {
       username: opts.username,
       password: opts.password,
       manualConnect: true,
+      reconnectPeriod: 5000,
+      connectTimeout: 30000,
+      keepalive: 30,
+      clean: true,
     });
     
     // this._client = CreateMqttConnection("mqtt://broker.emqx.io:1883", {
@@ -51,7 +55,7 @@ export class DigiforgeClient {
     });
 
     this._client.on("reconnect", () => {
-      this.isConnected = true;
+      console.log("Reconnecting to Digiforge...");
     });
 
     this._client.on("close", () => {
@@ -65,24 +69,39 @@ export class DigiforgeClient {
     this._client.on("disconnect", () => {
       this.isConnected = false;
     });
+
+    this._client.on("error", (err) => {
+      console.error("MQTT error:", err.message);
+      this.isConnected = false;
+    });
   }
 
   async connect(): Promise<boolean> {
+    if (this.isConnected) return true;
     return new Promise((resolve) => {
+      let done = false;
+      const finish = (ok: boolean) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        this._client.removeListener("connect", onConnect);
+        this._client.removeListener("error", onError);
+        resolve(ok);
+      };
+      const onConnect = () => finish(true);
+      const onError = (err: Error) => {
+        console.error("Connection error:", err.message);
+        finish(false);
+      };
       const timer = setTimeout(() => {
         console.error("Connection timeout");
-        resolve(false);
+        finish(false);
       }, 30000);
-      this._client.once("connect", () => {
-        clearTimeout(timer);
-        resolve(true);
-      });
-      this._client.once("error", (err) => {
-        clearTimeout(timer);
-        console.error("Connection error:", err.message);
-        resolve(false);
-      });
-      this._client.connect();
+      this._client.once("connect", onConnect);
+      this._client.once("error", onError);
+      if (!this._client.connected && !this._client.reconnecting) {
+        this._client.connect();
+      }
     });
   }
 
