@@ -19,6 +19,11 @@ const THRESHOLDS = {
 
 const SEVERITY = { healthy: 0, warning: 1, critical: 2 } as const;
 
+const BYTES_PER_GB = 1024 ** 3;
+
+const round2 = (value: number) => Math.round(value * 100) / 100;
+const toGb = (bytes: number) => round2(bytes / BYTES_PER_GB);
+
 export type HealthStatus = keyof typeof SEVERITY;
 
 export interface HealthCheck {
@@ -32,40 +37,29 @@ export interface SystemHealth {
     checks: HealthCheck[];
 }
 
+// Tailles en Go, pourcentages et températures arrondis à 2 décimales.
+export interface Storage {
+    total: number;
+    used: number;
+    free: number;
+    percentage: number;
+}
+
 export interface SystemInfo {
     cpu: {
         usage: number;
         cores: number;
-        model: string;
-        loadAverage: number[];
         // null quand le noyau n'expose aucun capteur (toujours le cas sous Windows).
         temperature: number | null;
     };
-    memory: {
-        total: number;
-        used: number;
-        free: number;
-        percentage: number;
-    };
-    disk: {
-        total: number;
-        used: number;
-        free: number;
-        percentage: number;
-    };
+    memory: Storage;
+    disk: Storage;
     network: {
         isConnected: boolean;
         ip: string;
         interface: string;
     };
-    os: {
-        platform: string;
-        release: string;
-        arch: string;
-        hostname: string;
-    };
     uptime: number;
-    nodeVersion: string;
     timestamp: string;
 }
 
@@ -101,7 +95,7 @@ async function getCpuUsage(): Promise<number> {
     lastCpu = now;
 
     if (totalDelta <= 0) return 0;
-    return Math.max(0, Math.min(100, 100 - (100 * idleDelta) / totalDelta));
+    return round2(Math.max(0, Math.min(100, 100 - (100 * idleDelta) / totalDelta)));
 }
 
 // undefined = pas encore cherché, null = aucun capteur sur cette machine.
@@ -164,29 +158,38 @@ async function getCpuTemperature(): Promise<number | null> {
     try {
         const celsius = Number(await readTrimmed(tempSensorPath)) / 1000;
         // Un capteur qui déraille renvoie 0 ou des valeurs absurdes; mieux vaut rien que faux.
-        return celsius > 0 && celsius < 150 ? celsius : null;
+        return celsius > 0 && celsius < 150 ? round2(celsius) : null;
     } catch (err) {
         console.error(`Lecture de ${tempSensorPath} impossible:`, err);
         return null;
     }
 }
 
-function getMemoryInfo() {
+// Le pourcentage vient des octets bruts: l'arrondi en Go le fausserait sur les petits volumes.
+function toStorage(total: number, used: number, free: number, capacity: number): Storage {
+    return {
+        total: toGb(total),
+        used: toGb(used),
+        free: toGb(free),
+        percentage: capacity > 0 ? round2((used / capacity) * 100) : 0,
+    };
+}
+
+function getMemoryInfo(): Storage {
     const total = os.totalmem();
     const free = os.freemem();
     const used = total - free;
-    return { total, used, free, percentage: (used / total) * 100 };
+    return toStorage(total, used, free, total);
 }
 
-async function getDiskInfo() {
+async function getDiskInfo(): Promise<Storage> {
     try {
         const stats = await statfs(DISK_PATH);
         const total = stats.blocks * stats.bsize;
         // bavail = espace utilisable sans privilèges root, bfree l'inclut. df utilise les deux.
         const free = stats.bavail * stats.bsize;
         const used = (stats.blocks - stats.bfree) * stats.bsize;
-        const capacity = used + free;
-        return { total, used, free, percentage: capacity > 0 ? (used / capacity) * 100 : 0 };
+        return toStorage(total, used, free, used + free);
     } catch (err) {
         console.error(`Impossible de lire le disque ${DISK_PATH}:`, err);
         return { total: 0, used: 0, free: 0, percentage: 0 };
@@ -206,27 +209,17 @@ function getNetworkInfo() {
 
 export async function getSystemInfo(): Promise<SystemInfo> {
     const [usage, disk, temperature] = await Promise.all([getCpuUsage(), getDiskInfo(), getCpuTemperature()]);
-    const cpus = os.cpus();
 
     return {
         cpu: {
             usage,
-            cores: cpus.length,
-            model: cpus[0]?.model ?? "Unknown",
-            loadAverage: os.loadavg(),
+            cores: os.cpus().length,
             temperature,
         },
         memory: getMemoryInfo(),
         disk,
         network: getNetworkInfo(),
-        os: {
-            platform: os.platform(),
-            release: os.release(),
-            arch: os.arch(),
-            hostname: os.hostname(),
-        },
-        uptime: os.uptime(),
-        nodeVersion: process.version,
+        uptime: Math.round(os.uptime()),
         timestamp: new Date().toISOString(),
     };
 }
