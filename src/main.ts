@@ -2,6 +2,7 @@ import { DigiforgeClient } from "./digiforge";
 import { connect as CreateMqttConnection } from "mqtt";
 import { handleShellyMessage } from "./shelly";
 import { openSerial } from "./serial";
+import { startSystemReporter } from "./system-info";
 import { env } from "./env";
 
 
@@ -68,6 +69,8 @@ async function main() {
         env.SENSOR_ID,
         () => updateLastReceivedTime('sensors', `sensor-${env.SENSOR_ID}`)
     );
+
+    startSystemReporter(transmitter, env.SYSTEM_INTERVAL);
 
 
     function checkForAlerts() {

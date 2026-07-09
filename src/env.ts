@@ -8,4 +8,5 @@ export const env = {
     SERIAL_PORT: process.env.SERIAL_PORT || "",
     SERIAL_BAUDRATE: Number(process.env.SERIAL_BAUDRATE) || 115200,
     SENSOR_ID: process.env.SENSOR_ID || process.env.DIGIFORGE_CLIENTID || "",
+    SYSTEM_INTERVAL: Number(process.env.SYSTEM_INTERVAL) || 60000,
 }
